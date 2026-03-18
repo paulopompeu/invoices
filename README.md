@@ -13,6 +13,7 @@ A forma mais segura de padronizar é:
 - `invoice-template.html`: template visual padronizado.
 - `invoice-data.example.json`: exemplo de dados de entrada.
 - `generate_invoice.py`: gera uma invoice nova em HTML.
+- `examples/`: exemplos publicos e anonimizados que podem ficar no repositório.
 
 Os enderecos agora sao separados em duas linhas:
 
@@ -42,6 +43,9 @@ Todas as invoices finais ficam em `output/` com este formato:
 - `invoice-0003.html`
 
 O sequencial automatico passa a considerar apenas os arquivos dentro de `output/`.
+
+Arquivos em `output/` sao gerados localmente e nao devem ser versionados.
+Se voce quiser manter uma invoice publica de exemplo no repositório, use a pasta `examples/`.
 
 Se quiser forçar um número específico:
 
