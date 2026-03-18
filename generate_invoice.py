@@ -14,6 +14,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "invoice-template.html"
 OUTPUT_DIR = ROOT / "output"
+REQUIRED_FIELDS = [
+    "seller_name",
+    "seller_legal_name",
+    "seller_tax_id",
+    "seller_address_line1",
+    "seller_address_line2",
+    "seller_email",
+    "client_name",
+    "client_department",
+    "client_address_line1",
+    "client_address_line2",
+    "client_email",
+    "issue_date",
+    "due_date",
+    "currency",
+    "notes",
+    "items",
+]
 
 
 def money(value: Decimal, currency: str) -> str:
@@ -23,6 +41,59 @@ def money(value: Decimal, currency: str) -> str:
 
 def load_data(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def fail(message: str) -> None:
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def parse_decimal(value: object, label: str) -> Decimal:
+    try:
+        return Decimal(str(value))
+    except Exception as exc:
+        raise ValueError(f"'{label}' must be a valid number.") from exc
+
+
+def validate_data(data: object) -> dict:
+    if not isinstance(data, dict):
+        raise ValueError("Top-level JSON must be an object.")
+
+    missing_fields = [field for field in REQUIRED_FIELDS if field not in data]
+    if missing_fields:
+        raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
+
+    for field in REQUIRED_FIELDS:
+        if field == "items":
+            continue
+        if not isinstance(data[field], str):
+            raise ValueError(f"'{field}' must be a string.")
+
+    items = data["items"]
+    if not isinstance(items, list) or not items:
+        raise ValueError("'items' must be a non-empty list.")
+
+    for index, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"'items[{index}]' must be an object.")
+
+        for field in ["description", "quantity", "unit_price"]:
+            if field not in item:
+                raise ValueError(f"'items[{index}].{field}' is required.")
+
+        if not isinstance(item["description"], str) or not item["description"].strip():
+            raise ValueError(f"'items[{index}].description' must be a non-empty string.")
+
+        quantity = parse_decimal(item["quantity"], f"items[{index}].quantity")
+        unit_price = parse_decimal(item["unit_price"], f"items[{index}].unit_price")
+
+        if quantity <= 0:
+            raise ValueError(f"'items[{index}].quantity' must be greater than zero.")
+        if unit_price < 0:
+            raise ValueError(f"'items[{index}].unit_price' must be zero or greater.")
+
+    parse_decimal(data.get("tax", 0), "tax")
+    return data
 
 
 def detect_next_number() -> int:
@@ -105,7 +176,15 @@ def main() -> None:
     parser.add_argument("--keep-html", action="store_true", help="Keep the rendered HTML alongside the PDF for debugging.")
     args = parser.parse_args()
 
-    data = load_data(Path(args.data))
+    try:
+        data = validate_data(load_data(Path(args.data)))
+    except FileNotFoundError:
+        fail(f"Data file not found: {args.data}")
+    except json.JSONDecodeError as exc:
+        fail(f"Invalid JSON in {args.data}: {exc}")
+    except ValueError as exc:
+        fail(str(exc))
+
     invoice_number = args.number if args.number is not None else detect_next_number()
     currency = str(data["currency"])
     items_rows, subtotal = build_items_rows(data["items"], currency)

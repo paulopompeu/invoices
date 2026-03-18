@@ -107,3 +107,4 @@ ou:
 - A estrutura visual, textos fixos e campos obrigatórios ficam centralizados em um único template.
 - Para semanas fechadas, o ideal e mais claro e descrever o item com periodo + carga horaria total, por exemplo: `Services provided from Monday to Friday, 8 hours per day, totaling 40 hours.`
 - A geracao de PDF usa Playwright + Chromium para manter o layout do HTML de forma cross-platform.
+- O gerador valida o JSON antes de renderizar e mostra erros claros para campos ausentes, JSON invalido e valores numericos incorretos.
