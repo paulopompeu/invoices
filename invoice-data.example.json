@@ -1,0 +1,25 @@
+{
+  "seller_name": "Alex Carter",
+  "seller_legal_name": "Northwind Digital Services LLC",
+  "seller_tax_id": "Tax ID / Document: 11.222.333/0001-44",
+  "seller_address_line1": "128 Market Street",
+  "seller_address_line2": "Austin, TX 78701",
+  "seller_email": "alex.carter@example.com",
+  "client_name": "Blue Ridge Hospitality Group",
+  "client_department": "Accounts Payable",
+  "client_address_line1": "450 West Harbor Blvd",
+  "client_address_line2": "Tampa, FL 33602",
+  "client_email": "ap@blueridge.example.com",
+  "issue_date": "2026-03-18",
+  "due_date": "2026-03-25",
+  "currency": "USD",
+  "notes": "Consulting and software development services.",
+  "tax": 0,
+  "items": [
+    {
+      "description": "Software consulting and development services from Monday to Friday, 8 hours per day, totaling 40 hours for the week.",
+      "quantity": 40,
+      "unit_price": 80.00
+    }
+  ]
+}
