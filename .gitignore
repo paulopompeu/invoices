@@ -2,5 +2,6 @@
 __pycache__/
 invoice-*.json
 !invoice-data.example.json
+!examples/invoice-example.json
 output/*
 !output/.gitkeep
