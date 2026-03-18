@@ -13,6 +13,7 @@ A forma mais segura de padronizar é:
 - `invoice-template.html`: template visual padronizado.
 - `invoice-data.example.json`: exemplo de dados de entrada.
 - `generate_invoice.py`: gera uma invoice nova em PDF.
+- `Makefile`: atalhos para setup e geração das invoices.
 - `examples/`: exemplos publicos e anonimizados que podem ficar no repositório.
 
 Os enderecos agora sao separados em duas linhas:
@@ -24,6 +25,14 @@ Os enderecos agora sao separados em duas linhas:
 
 ## Instalacao
 
+Via `make`:
+
+```bash
+make setup
+```
+
+Ou manualmente:
+
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
@@ -33,6 +42,14 @@ python3 -m venv .venv
 1. Copie `invoice-data.example.json` para um novo arquivo, por exemplo `invoice-04.json`.
 2. Edite apenas os campos do JSON.
 3. Gere a invoice:
+
+Com `make`:
+
+```bash
+make invoice DATA=invoice-04.json
+```
+
+Ou manualmente:
 
 ```bash
 .venv/bin/python generate_invoice.py --data invoice-04.json
@@ -63,10 +80,22 @@ Se quiser forçar um número específico:
 Para testar sem gerar arquivo:
 
 ```bash
+make dry-run DATA=invoice-04.json
+```
+
+ou:
+
+```bash
 .venv/bin/python generate_invoice.py --data invoice-04.json --dry-run
 ```
 
 Para manter tambem o HTML renderizado para debug:
+
+```bash
+make debug DATA=invoice-04.json
+```
+
+ou:
 
 ```bash
 .venv/bin/python generate_invoice.py --data invoice-04.json --keep-html
