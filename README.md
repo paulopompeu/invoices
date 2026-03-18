@@ -12,7 +12,7 @@ A forma mais segura de padronizar é:
 
 - `invoice-template.html`: template visual padronizado.
 - `invoice-data.example.json`: exemplo de dados de entrada.
-- `generate_invoice.py`: gera uma invoice nova em HTML.
+- `generate_invoice.py`: gera uma invoice nova em PDF.
 - `examples/`: exemplos publicos e anonimizados que podem ficar no repositório.
 
 Os enderecos agora sao separados em duas linhas:
@@ -22,17 +22,24 @@ Os enderecos agora sao separados em duas linhas:
 
 ## Fluxo recomendado
 
+## Instalacao
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m playwright install chromium
+```
+
 1. Copie `invoice-data.example.json` para um novo arquivo, por exemplo `invoice-04.json`.
 2. Edite apenas os campos do JSON.
 3. Gere a invoice:
 
 ```bash
-python3 generate_invoice.py --data invoice-04.json
+.venv/bin/python generate_invoice.py --data invoice-04.json
 ```
 
 4. O script detecta o próximo número com base nos arquivos do diretório.
-5. O arquivo HTML final será salvo em `output/invoice-0004.html`.
-5. Abra o HTML no navegador e exporte para PDF usando `Print > Save as PDF`.
+5. O PDF final será salvo em `output/invoice-0004.pdf`.
 
 ## Padrao de nomes
 
@@ -40,7 +47,7 @@ Todas as invoices finais ficam em `output/` com este formato:
 
 - `invoice-0001.pdf`
 - `invoice-0002.pdf`
-- `invoice-0003.html`
+- `invoice-0003.pdf`
 
 O sequencial automatico passa a considerar apenas os arquivos dentro de `output/`.
 
@@ -50,13 +57,19 @@ Se voce quiser manter uma invoice publica de exemplo no repositório, use a past
 Se quiser forçar um número específico:
 
 ```bash
-python3 generate_invoice.py --data invoice-04.json --number 4
+.venv/bin/python generate_invoice.py --data invoice-04.json --number 4
 ```
 
 Para testar sem gerar arquivo:
 
 ```bash
-python3 generate_invoice.py --data invoice-04.json --dry-run
+.venv/bin/python generate_invoice.py --data invoice-04.json --dry-run
+```
+
+Para manter tambem o HTML renderizado para debug:
+
+```bash
+.venv/bin/python generate_invoice.py --data invoice-04.json --keep-html
 ```
 
 ## Observações
@@ -64,4 +77,4 @@ python3 generate_invoice.py --data invoice-04.json --dry-run
 - O número da invoice fica separado do nome do arquivo original, evitando confusão como `Invoice 1 (7)-1.pdf`.
 - A estrutura visual, textos fixos e campos obrigatórios ficam centralizados em um único template.
 - Para semanas fechadas, o ideal e mais claro e descrever o item com periodo + carga horaria total, por exemplo: `Services provided from Monday to Friday, 8 hours per day, totaling 40 hours.`
-- Se você quiser, o próximo passo pode ser automatizar também a exportação para PDF e a leitura da próxima sequência disponível.
+- A geracao de PDF usa Playwright + Chromium para manter o layout do HTML de forma cross-platform.

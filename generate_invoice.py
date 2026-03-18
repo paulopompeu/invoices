@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import asyncio
 import html
 import json
 import re
+import sys
+import tempfile
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
@@ -72,11 +75,34 @@ def render(template: str, values: dict) -> str:
     return rendered
 
 
+async def render_pdf(html_path: Path, pdf_path: Path) -> None:
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError as exc:
+        raise RuntimeError(
+            "Missing dependency 'playwright'. Install requirements and run "
+            "'python3 -m playwright install chromium'."
+        ) from exc
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(html_path.resolve().as_uri(), wait_until="networkidle")
+        await page.pdf(
+            path=str(pdf_path),
+            format="A4",
+            print_background=True,
+            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+        )
+        await browser.close()
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a standardized invoice HTML file.")
+    parser = argparse.ArgumentParser(description="Generate a standardized invoice PDF file.")
     parser.add_argument("--data", required=True, help="Path to the JSON data file.")
     parser.add_argument("--number", type=int, help="Invoice sequence number. Defaults to the next detected number.")
     parser.add_argument("--dry-run", action="store_true", help="Preview the next invoice number and output path without writing files.")
+    parser.add_argument("--keep-html", action="store_true", help="Keep the rendered HTML alongside the PDF for debugging.")
     args = parser.parse_args()
 
     data = load_data(Path(args.data))
@@ -113,16 +139,33 @@ def main() -> None:
     rendered = render(template, values)
 
     OUTPUT_DIR.mkdir(exist_ok=True)
-    output_path = OUTPUT_DIR / f"invoice-{invoice_number:04d}.html"
+    pdf_path = OUTPUT_DIR / f"invoice-{invoice_number:04d}.pdf"
+    html_path = OUTPUT_DIR / f"invoice-{invoice_number:04d}.html"
 
     if args.dry_run:
         print(f"invoice_number={invoice_number:04d}")
-        print(f"output_path={output_path}")
+        print(f"output_path={pdf_path}")
         print(f"total={money(total, currency)}")
         return
 
-    output_path.write_text(rendered, encoding="utf-8")
-    print(output_path)
+    if args.keep_html:
+        html_path.write_text(rendered, encoding="utf-8")
+        source_html_path = html_path
+    else:
+        with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as temp_file:
+            temp_file.write(rendered)
+            source_html_path = Path(temp_file.name)
+
+    try:
+        asyncio.run(render_pdf(source_html_path, pdf_path))
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if not args.keep_html and source_html_path.exists():
+            source_html_path.unlink()
+
+    print(pdf_path)
 
 
 if __name__ == "__main__":
