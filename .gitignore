@@ -1,6 +1,7 @@
 .DS_Store
 __pycache__/
 .venv/
+sequence.txt
 invoice-*.json
 !invoice-data.example.json
 !examples/invoice-example.json

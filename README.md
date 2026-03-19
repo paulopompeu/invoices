@@ -1,37 +1,34 @@
-# Invoice Template
+# Invoices
 
-Os PDFs existentes servem como referência visual, mas não são a melhor base para gerar novas invoices com consistência.
+Gerador de invoices em PDF com:
 
-A forma mais segura de padronizar é:
+- dados em JSON;
+- template em HTML;
+- renderização em PDF com Playwright;
+- sequência automática controlada por arquivo local;
+- comandos curtos via `make`.
 
-1. Manter um template único.
-2. Preencher apenas os dados variáveis de cada invoice.
-3. Gerar o arquivo final com uma sequência numérica controlada.
+## Estrutura
 
-## Arquivos
+- `generate_invoice.py`: gera o PDF final.
+- `invoice-template.html`: template visual da invoice.
+- `invoice-data.example.json`: exemplo público de dados.
+- `sequence.txt.example`: exemplo do arquivo de sequência local.
+- `Makefile`: atalhos de uso.
+- `examples/`: exemplos públicos e anonimizados.
+- `output/`: saída local das invoices geradas. Não sobe para o Git.
 
-- `invoice-template.html`: template visual padronizado.
-- `invoice-data.example.json`: exemplo de dados de entrada.
-- `generate_invoice.py`: gera uma invoice nova em PDF.
-- `Makefile`: atalhos para setup e geração das invoices.
-- `examples/`: exemplos publicos e anonimizados que podem ficar no repositório.
+## Instalação
 
-Os enderecos agora sao separados em duas linhas:
-
-- `seller_address_line1` e `client_address_line1`: numero e rua
-- `seller_address_line2` e `client_address_line2`: cidade, estado e zip code
-
-## Fluxo recomendado
-
-## Instalacao
-
-Via `make`:
+### Opção recomendada
 
 ```bash
 make setup
 ```
 
-Ou manualmente:
+Isso cria `.venv`, instala as dependências Python e baixa o Chromium do Playwright.
+
+### Opção manual
 
 ```bash
 python3 -m venv .venv
@@ -39,72 +36,123 @@ python3 -m venv .venv
 .venv/bin/python -m playwright install chromium
 ```
 
-1. Copie `invoice-data.example.json` para um novo arquivo, por exemplo `invoice-04.json`.
-2. Edite apenas os campos do JSON.
-3. Gere a invoice:
+## Comandos
 
-Com `make`:
+Gerar invoice:
 
 ```bash
-make invoice DATA=invoice-04.json
+make invoice DATA=invoice-ford.json
 ```
 
-Ou manualmente:
+Dry-run:
 
 ```bash
-.venv/bin/python generate_invoice.py --data invoice-04.json
+make dry-run DATA=invoice-ford.json
 ```
 
-4. O script detecta o próximo número com base nos arquivos do diretório.
-5. O PDF final será salvo em `output/invoice-0004.pdf`.
-
-## Padrao de nomes
-
-Todas as invoices finais ficam em `output/` com este formato:
-
-- `invoice-0001.pdf`
-- `invoice-0002.pdf`
-- `invoice-0003.pdf`
-
-O sequencial automatico passa a considerar apenas os arquivos dentro de `output/`.
-
-Arquivos em `output/` sao gerados localmente e nao devem ser versionados.
-Se voce quiser manter uma invoice publica de exemplo no repositório, use a pasta `examples/`.
-
-Se quiser forçar um número específico:
+Gerar PDF e manter também o HTML renderizado:
 
 ```bash
-.venv/bin/python generate_invoice.py --data invoice-04.json --number 4
+make debug DATA=invoice-ford.json
 ```
 
-Para testar sem gerar arquivo:
+Validar o projeto:
 
 ```bash
-make dry-run DATA=invoice-04.json
+make check
 ```
 
-ou:
+Rodar apenas os testes:
 
 ```bash
-.venv/bin/python generate_invoice.py --data invoice-04.json --dry-run
+make test
 ```
 
-Para manter tambem o HTML renderizado para debug:
+Instalar ou atualizar apenas o browser do Playwright:
 
 ```bash
-make debug DATA=invoice-04.json
+make install-browser
 ```
 
-ou:
+## Fluxo de uso
 
-```bash
-.venv/bin/python generate_invoice.py --data invoice-04.json --keep-html
-```
+1. Copie `invoice-data.example.json` para um arquivo seu, por exemplo `invoice-ford.json`.
+2. Preencha os dados da invoice.
+3. Gere o PDF com `make invoice DATA=invoice-ford.json`.
+4. O arquivo final será salvo em `output/`.
+
+## Sequência
+
+O projeto usa um arquivo local `sequence.txt` para controlar o último número emitido.
+
+- `sequence.txt` é local e ignorado pelo Git.
+- `sequence.txt.example` é apenas referência.
+- Se `sequence.txt` não existir, o gerador usa o maior número já encontrado em `output/`.
+- Depois de uma geração bem-sucedida, o `sequence.txt` é atualizado.
+
+## Formato dos dados
+
+Campos principais do JSON:
+
+- `seller_name`
+- `seller_legal_name`
+- `seller_tax_id`
+- `seller_address_line1`
+- `seller_address_line2`
+- `seller_email`
+- `client_name`
+- `client_department`
+- `client_address_line1`
+- `client_address_line2`
+- `client_email`
+- `issue_date`
+- `due_date`
+- `currency`
+- `notes`
+- `items`
+
+Cada item em `items` deve conter:
+
+- `description`
+- `quantity`
+- `unit_price`
+
+## Validação
+
+O gerador valida o JSON antes de renderizar.
+
+Erros cobertos:
+
+- arquivo inexistente;
+- JSON inválido;
+- campos obrigatórios ausentes;
+- `items` vazio ou malformado;
+- quantidade menor ou igual a zero;
+- preço unitário negativo;
+- valores numéricos inválidos.
+
+## Arquivos públicos e privados
+
+Versionados no Git:
+
+- código;
+- template;
+- exemplos públicos em `examples/`.
+
+Ignorados pelo Git:
+
+- invoices reais em `output/`;
+- arquivos pessoais `invoice-*.json`;
+- `.venv/`;
+- `sequence.txt`.
+
+## Exemplos
+
+- `examples/invoice-example.json`
+- `examples/invoice-example.html`
 
 ## Observações
 
-- O número da invoice fica separado do nome do arquivo original, evitando confusão como `Invoice 1 (7)-1.pdf`.
-- A estrutura visual, textos fixos e campos obrigatórios ficam centralizados em um único template.
-- Para semanas fechadas, o ideal e mais claro e descrever o item com periodo + carga horaria total, por exemplo: `Services provided from Monday to Friday, 8 hours per day, totaling 40 hours.`
-- A geracao de PDF usa Playwright + Chromium para manter o layout do HTML de forma cross-platform.
-- O gerador valida o JSON antes de renderizar e mostra erros claros para campos ausentes, JSON invalido e valores numericos incorretos.
+- O layout final do PDF vem do template HTML.
+- A geração de PDF usa Playwright + Chromium, o que mantém o projeto cross-platform.
+- Para semanas fechadas, a descrição mais clara costuma ser algo como: `Services provided from Monday to Friday, 8 hours per day, totaling 40 hours.`

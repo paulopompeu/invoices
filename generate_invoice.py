@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "invoice-template.html"
 OUTPUT_DIR = ROOT / "output"
+SEQUENCE_PATH = ROOT / "sequence.txt"
 REQUIRED_FIELDS = [
     "seller_name",
     "seller_legal_name",
@@ -41,6 +42,10 @@ def money(value: Decimal, currency: str) -> str:
 
 def load_data(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 def fail(message: str) -> None:
@@ -96,13 +101,13 @@ def validate_data(data: object) -> dict:
     return data
 
 
-def detect_next_number() -> int:
+def detect_highest_output_number(output_dir: Path = OUTPUT_DIR) -> int:
     highest = 0
 
-    if not OUTPUT_DIR.exists():
-        return 1
+    if not output_dir.exists():
+        return 0
 
-    for path in OUTPUT_DIR.iterdir():
+    for path in output_dir.iterdir():
         if path.is_dir():
             continue
 
@@ -110,7 +115,29 @@ def detect_next_number() -> int:
         if match:
             highest = max(highest, int(match.group(1)))
 
-    return highest + 1 if highest else 1
+    return highest
+
+
+def read_sequence_value(sequence_path: Path = SEQUENCE_PATH, output_dir: Path = OUTPUT_DIR) -> int:
+    if sequence_path.exists():
+        raw_value = read_text(sequence_path).strip()
+        if not raw_value:
+            raise ValueError("sequence.txt is empty.")
+        try:
+            return int(raw_value)
+        except ValueError as exc:
+            raise ValueError("sequence.txt must contain an integer.") from exc
+
+    return detect_highest_output_number(output_dir)
+
+
+def next_invoice_number(sequence_path: Path = SEQUENCE_PATH, output_dir: Path = OUTPUT_DIR) -> int:
+    current = read_sequence_value(sequence_path, output_dir)
+    return current + 1 if current >= 0 else 1
+
+
+def write_sequence_value(number: int, sequence_path: Path = SEQUENCE_PATH) -> None:
+    sequence_path.write_text(f"{number}\n", encoding="utf-8")
 
 
 def build_items_rows(items: list[dict], currency: str) -> tuple[str, Decimal]:
@@ -185,7 +212,14 @@ def main() -> None:
     except ValueError as exc:
         fail(str(exc))
 
-    invoice_number = args.number if args.number is not None else detect_next_number()
+    try:
+        invoice_number = args.number if args.number is not None else next_invoice_number()
+    except ValueError as exc:
+        fail(str(exc))
+
+    if invoice_number <= 0:
+        fail("Invoice number must be greater than zero.")
+
     currency = str(data["currency"])
     items_rows, subtotal = build_items_rows(data["items"], currency)
     tax = Decimal(str(data.get("tax", 0)))
@@ -243,6 +277,12 @@ def main() -> None:
     finally:
         if not args.keep_html and source_html_path.exists():
             source_html_path.unlink()
+
+    try:
+        current_sequence = read_sequence_value()
+        write_sequence_value(max(current_sequence, invoice_number))
+    except ValueError as exc:
+        fail(str(exc))
 
     print(pdf_path)
 
