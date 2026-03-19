@@ -44,6 +44,19 @@ Gerar invoice:
 make invoice DATA=invoice-ford.json
 ```
 
+Atalho por cliente:
+
+```bash
+make ford
+```
+
+Isso procura automaticamente por `invoice-ford.json`.
+Se no futuro existir `invoice-spectrum.json`, você poderá usar:
+
+```bash
+make spectrum
+```
+
 Dry-run:
 
 ```bash

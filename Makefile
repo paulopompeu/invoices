@@ -1,6 +1,6 @@
 PYTHON ?= python3
 VENV_PYTHON = .venv/bin/python
-DATA ?= invoice-04.json
+DATA ?= invoice-ford.json
 
 .PHONY: setup install-browser invoice dry-run debug check test
 
@@ -28,3 +28,11 @@ check:
 
 test:
 	$(PYTHON) -m unittest discover -s tests -v
+
+%:
+	@if [ -f "invoice-$@.json" ]; then \
+		$(VENV_PYTHON) generate_invoice.py --data "invoice-$@.json"; \
+	else \
+		echo "make: unknown target '$@' and file 'invoice-$@.json' was not found." >&2; \
+		exit 2; \
+	fi
