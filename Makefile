@@ -29,6 +29,14 @@ check:
 test:
 	$(PYTHON) -m unittest discover -s tests -v
 
+%-dry-run:
+	@if [ -f "invoice-$*.json" ]; then \
+		$(VENV_PYTHON) generate_invoice.py --data "invoice-$*.json" --dry-run; \
+	else \
+		echo "make: unknown target '$@' and file 'invoice-$*.json' was not found." >&2; \
+		exit 2; \
+	fi
+
 %:
 	@if [ -f "invoice-$@.json" ]; then \
 		$(VENV_PYTHON) generate_invoice.py --data "invoice-$@.json"; \

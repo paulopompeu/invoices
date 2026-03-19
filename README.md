@@ -57,6 +57,18 @@ Se no futuro existir `invoice-spectrum.json`, você poderá usar:
 make spectrum
 ```
 
+Dry-run por cliente:
+
+```bash
+make ford-dry-run
+```
+
+E no futuro:
+
+```bash
+make spectrum-dry-run
+```
+
 Dry-run:
 
 ```bash
