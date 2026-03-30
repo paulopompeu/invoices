@@ -81,6 +81,18 @@ Gerar PDF e manter também o HTML renderizado:
 make debug DATA=invoice-ford.json
 ```
 
+Gerar a invoice semanal da semana anterior em dry-run:
+
+```bash
+make weekly-dry-run DATA=invoice-ford.json
+```
+
+Gerar a invoice semanal e abrir um draft no Outlook com o PDF anexado, sem enviar:
+
+```bash
+make weekly-draft DATA=invoice-ford.json
+```
+
 Validar o projeto:
 
 ```bash
@@ -105,6 +117,52 @@ make install-browser
 2. Preencha os dados da invoice.
 3. Gere o PDF com `make invoice DATA=invoice-ford.json`.
 4. O arquivo final será salvo em `output/`.
+
+## Automação semanal local
+
+Para o fluxo semanal, o projeto inclui `prepare_weekly_invoice.py`.
+
+Ele:
+
+- calcula automaticamente a segunda e a sexta da semana anterior;
+- usa a data de execução como `issue_date`;
+- calcula `due_date` com base em `--due-days` (padrão: 7);
+- atualiza a descrição do primeiro item com o período semanal;
+- gera o PDF final;
+- cria um draft no Microsoft Outlook com assunto, corpo e anexo, sem enviar.
+
+Exemplo de uso:
+
+```bash
+.venv/bin/python prepare_weekly_invoice.py --data invoice-ford.json
+```
+
+Dry-run:
+
+```bash
+.venv/bin/python prepare_weekly_invoice.py --data invoice-ford.json --dry-run
+```
+
+Parâmetros úteis:
+
+- `--reference-date 2026-03-30`: simula a execução em uma data específica;
+- `--due-days 7`: define o prazo em dias a partir da emissão;
+- `--hours 40`: sobrescreve as horas da semana;
+- `--recipient email@empresa.com`: sobrescreve o destinatário;
+- `--recipient a@empresa.com,b@empresa.com`: sobrescreve um ou mais destinatários;
+- `--description-template ...`: customiza a descrição da invoice;
+- `--email-subject-template ...`: customiza o assunto;
+- `--email-body-template ...`: customiza o corpo do email.
+
+Templates disponíveis:
+
+- `{start_date}`
+- `{end_date}`
+- `{issue_date}`
+- `{due_date}`
+- `{hours}`
+- `{seller_name}`
+- `{client_name}`
 
 ## Sequência
 
@@ -181,3 +239,12 @@ Ignorados pelo Git:
 - O layout final do PDF vem do template HTML.
 - A geração de PDF usa Playwright + Chromium, o que mantém o projeto cross-platform.
 - Para semanas fechadas, a descrição mais clara costuma ser algo como: `Services provided from Monday to Friday, 8 hours per day, totaling 40 hours.`
+
+## Roadmap
+
+1. Consolidar o fluxo atual de geração semanal e draft no Outlook com os textos já aprovados.
+2. Agendar a execução local toda segunda-feira com `launchd` no macOS.
+3. Adicionar um modo opcional de revisão, por exemplo abrindo o PDF antes do draft.
+4. Tornar destinatários, saudação e assunto configuráveis por cliente sem editar o script.
+5. Endurecer a integração com Outlook para reduzir diferenças visuais entre versões do app.
+6. Opcionalmente registrar logs locais de execução para facilitar auditoria e troubleshooting.

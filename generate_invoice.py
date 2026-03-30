@@ -9,6 +9,7 @@ import sys
 import tempfile
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent
@@ -195,30 +196,18 @@ async def render_pdf(html_path: Path, pdf_path: Path) -> None:
         await browser.close()
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a standardized invoice PDF file.")
-    parser.add_argument("--data", required=True, help="Path to the JSON data file.")
-    parser.add_argument("--number", type=int, help="Invoice sequence number. Defaults to the next detected number.")
-    parser.add_argument("--dry-run", action="store_true", help="Preview the next invoice number and output path without writing files.")
-    parser.add_argument("--keep-html", action="store_true", help="Keep the rendered HTML alongside the PDF for debugging.")
-    args = parser.parse_args()
-
-    try:
-        data = validate_data(load_data(Path(args.data)))
-    except FileNotFoundError:
-        fail(f"Data file not found: {args.data}")
-    except json.JSONDecodeError as exc:
-        fail(f"Invalid JSON in {args.data}: {exc}")
-    except ValueError as exc:
-        fail(str(exc))
-
-    try:
-        invoice_number = args.number if args.number is not None else next_invoice_number()
-    except ValueError as exc:
-        fail(str(exc))
-
+def generate_invoice_document(
+    data: dict[str, Any],
+    *,
+    invoice_number: int,
+    dry_run: bool = False,
+    keep_html: bool = False,
+    template_path: Path = TEMPLATE_PATH,
+    output_dir: Path = OUTPUT_DIR,
+    sequence_path: Path = SEQUENCE_PATH,
+) -> dict[str, Any]:
     if invoice_number <= 0:
-        fail("Invoice number must be greater than zero.")
+        raise ValueError("Invoice number must be greater than zero.")
 
     currency = str(data["currency"])
     items_rows, subtotal = build_items_rows(data["items"], currency)
@@ -248,20 +237,23 @@ def main() -> None:
         "total": money(total, currency),
     }
 
-    template = TEMPLATE_PATH.read_text(encoding="utf-8")
+    template = template_path.read_text(encoding="utf-8")
     rendered = render(template, values)
 
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    pdf_path = OUTPUT_DIR / f"invoice-{invoice_number:04d}.pdf"
-    html_path = OUTPUT_DIR / f"invoice-{invoice_number:04d}.html"
+    output_dir.mkdir(exist_ok=True)
+    pdf_path = output_dir / f"invoice-{invoice_number:04d}.pdf"
+    html_path = output_dir / f"invoice-{invoice_number:04d}.html"
 
-    if args.dry_run:
-        print(f"invoice_number={invoice_number:04d}")
-        print(f"output_path={pdf_path}")
-        print(f"total={money(total, currency)}")
-        return
+    if dry_run:
+        return {
+            "invoice_number": invoice_number,
+            "pdf_path": pdf_path,
+            "html_path": html_path,
+            "total": money(total, currency),
+            "rendered_html": rendered,
+        }
 
-    if args.keep_html:
+    if keep_html:
         html_path.write_text(rendered, encoding="utf-8")
         source_html_path = html_path
     else:
@@ -271,20 +263,64 @@ def main() -> None:
 
     try:
         asyncio.run(render_pdf(source_html_path, pdf_path))
-    except RuntimeError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(1)
     finally:
-        if not args.keep_html and source_html_path.exists():
+        if not keep_html and source_html_path.exists():
             source_html_path.unlink()
 
+    current_sequence = read_sequence_value(sequence_path=sequence_path, output_dir=output_dir)
+    write_sequence_value(max(current_sequence, invoice_number), sequence_path=sequence_path)
+
+    return {
+        "invoice_number": invoice_number,
+        "pdf_path": pdf_path,
+        "html_path": html_path,
+        "total": money(total, currency),
+        "rendered_html": rendered,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate a standardized invoice PDF file.")
+    parser.add_argument("--data", required=True, help="Path to the JSON data file.")
+    parser.add_argument("--number", type=int, help="Invoice sequence number. Defaults to the next detected number.")
+    parser.add_argument("--dry-run", action="store_true", help="Preview the next invoice number and output path without writing files.")
+    parser.add_argument("--keep-html", action="store_true", help="Keep the rendered HTML alongside the PDF for debugging.")
+    args = parser.parse_args()
+
     try:
-        current_sequence = read_sequence_value()
-        write_sequence_value(max(current_sequence, invoice_number))
+        data = validate_data(load_data(Path(args.data)))
+    except FileNotFoundError:
+        fail(f"Data file not found: {args.data}")
+    except json.JSONDecodeError as exc:
+        fail(f"Invalid JSON in {args.data}: {exc}")
     except ValueError as exc:
         fail(str(exc))
 
-    print(pdf_path)
+    try:
+        invoice_number = args.number if args.number is not None else next_invoice_number()
+    except ValueError as exc:
+        fail(str(exc))
+
+    try:
+        result = generate_invoice_document(
+            data,
+            invoice_number=invoice_number,
+            dry_run=args.dry_run,
+            keep_html=args.keep_html,
+        )
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+    except ValueError as exc:
+        fail(str(exc))
+
+    if args.dry_run:
+        print(f"invoice_number={result['invoice_number']:04d}")
+        print(f"output_path={result['pdf_path']}")
+        print(f"total={result['total']}")
+        return
+
+    print(result["pdf_path"])
 
 
 if __name__ == "__main__":

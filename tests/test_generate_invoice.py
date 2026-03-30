@@ -1,10 +1,12 @@
 import json
 import tempfile
 import unittest
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
 import generate_invoice
+import prepare_weekly_invoice
 
 
 def example_data() -> dict:
@@ -93,6 +95,72 @@ class InvoiceGeneratorTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "sequence.txt must contain an integer"):
                 generate_invoice.read_sequence_value(sequence_path=sequence_path, output_dir=root / "output")
+
+    def test_generate_invoice_document_dry_run_returns_paths_and_total(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            result = generate_invoice.generate_invoice_document(
+                example_data(),
+                invoice_number=12,
+                dry_run=True,
+                output_dir=root / "output",
+                sequence_path=root / "sequence.txt",
+            )
+
+            self.assertEqual(result["invoice_number"], 12)
+            self.assertEqual(result["pdf_path"], root / "output" / "invoice-0012.pdf")
+            self.assertEqual(result["total"], "USD 3,200.00")
+
+    def test_previous_workweek_returns_previous_monday_and_friday(self) -> None:
+        start_date, end_date = prepare_weekly_invoice.previous_workweek(date(2026, 3, 30))
+        self.assertEqual(start_date.isoformat(), "2026-03-23")
+        self.assertEqual(end_date.isoformat(), "2026-03-27")
+
+    def test_format_period_label_uses_single_month_format(self) -> None:
+        label = prepare_weekly_invoice.format_period_label(date(2026, 3, 16), date(2026, 3, 20))
+        self.assertEqual(label, "March 16 to 20")
+
+    def test_greeting_for_hour_changes_after_noon(self) -> None:
+        self.assertEqual(prepare_weekly_invoice.greeting_for_hour(9), "Good morning")
+        self.assertEqual(prepare_weekly_invoice.greeting_for_hour(15), "Good afternoon")
+
+    def test_build_weekly_invoice_data_updates_dates_and_description(self) -> None:
+        invoice_data, context = prepare_weekly_invoice.build_weekly_invoice_data(
+            example_data(),
+            reference_date=date(2026, 3, 30),
+            due_days=7,
+            hours="40",
+            description_template="Services provided from {start_date} to {end_date} totaling {hours} hours.",
+        )
+
+        self.assertEqual(invoice_data["issue_date"], "2026-03-30")
+        self.assertEqual(invoice_data["due_date"], "2026-04-06")
+        self.assertEqual(invoice_data["items"][0]["quantity"], "40")
+        self.assertEqual(
+            invoice_data["items"][0]["description"],
+            "Services provided from 2026-03-23 to 2026-03-27 totaling 40 hours.",
+        )
+        self.assertEqual(context["seller_name"], "Alex Carter")
+        self.assertEqual(context["recipient_name"], "Amy")
+        self.assertEqual(context["sender_display_name"], "Paulo Oliveira")
+        self.assertEqual(context["signature_name"], "Paulo")
+
+    def test_parse_recipients_supports_commas_and_semicolons(self) -> None:
+        recipients = prepare_weekly_invoice.parse_recipients(
+            "first@example.com, second@example.com; third@example.com"
+        )
+        self.assertEqual(
+            recipients,
+            ["first@example.com", "second@example.com", "third@example.com"],
+        )
+
+    def test_format_outlook_body_wraps_paragraphs_in_html(self) -> None:
+        body = "Good morning, Amy!\n\nAttached is invoice 0006.\n\nThank you,\nPaulo"
+        formatted = prepare_weekly_invoice.format_outlook_body(body)
+        self.assertIn("<div style='margin:0; padding:0;'>", formatted)
+        self.assertIn("Good morning, Amy!", formatted)
+        self.assertIn("Thank you,<br>Paulo", formatted)
 
 
 if __name__ == "__main__":

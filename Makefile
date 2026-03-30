@@ -2,7 +2,7 @@ PYTHON ?= python3
 VENV_PYTHON = .venv/bin/python
 DATA ?= invoice-ford.json
 
-.PHONY: setup install-browser invoice dry-run debug check test
+.PHONY: setup install-browser invoice dry-run debug check test weekly-dry-run weekly-draft
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -28,6 +28,12 @@ check:
 
 test:
 	$(PYTHON) -m unittest discover -s tests -v
+
+weekly-dry-run:
+	$(VENV_PYTHON) prepare_weekly_invoice.py --data $(DATA) --dry-run
+
+weekly-draft:
+	$(VENV_PYTHON) prepare_weekly_invoice.py --data $(DATA)
 
 %-dry-run:
 	@if [ -f "invoice-$*.json" ]; then \
